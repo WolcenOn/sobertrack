@@ -1,25 +1,33 @@
 const $ = selector => document.querySelector(selector);
 const KEY = 'sobertrack-state-v1';
-const VIRTUAL_GLASS_CAPACITY_ML = 300;
 const ETHANOL_DENSITY = 0.789;
 const ELIMINATION_PER_MINUTE = 0.0025;
+const STATUS_MAX_BAC = 4;
 
 const DB = {
   spirits: [
-    { id: 'gin-beefeater', brand: 'Beefeater', type: 'Ginebra', abv: 40, servings: [['Chupito', 40], ['Copa', 50], ['Combinado', 250]] },
-    { id: 'rum-bacardi', brand: 'Bacardi', type: 'Ron blanco', abv: 37.5, servings: [['Chupito', 40], ['Copa', 50], ['Combinado', 250]] },
-    { id: 'vodka-smirnoff', brand: 'Smirnoff', type: 'Vodka', abv: 37.5, servings: [['Chupito', 40], ['Copa', 50], ['Combinado', 250]] },
-    { id: 'whisky-jw', brand: 'Johnnie Walker', type: 'Whisky', abv: 40, servings: [['Chupito', 40], ['Copa', 50], ['Vaso', 60]] }
+    { id: 'gin-beefeater', brand: 'Beefeater', type: 'Ginebra', abv: 40, servings: [['Chupito', 40], ['Copa / combinado', 500], ['Vaso largo', 350]] },
+    { id: 'rum-bacardi', brand: 'Bacardi', type: 'Ron blanco', abv: 37.5, servings: [['Chupito', 40], ['Copa / combinado', 500], ['Vaso largo', 350]] },
+    { id: 'vodka-smirnoff', brand: 'Smirnoff', type: 'Vodka', abv: 37.5, servings: [['Chupito', 40], ['Copa / combinado', 500], ['Vaso largo', 350]] },
+    { id: 'whisky-jw', brand: 'Johnnie Walker', type: 'Whisky', abv: 40, servings: [['Chupito', 40], ['Vaso whisky', 250], ['Copa / combinado', 500]] },
+    { id: 'tequila', brand: 'Tequila genérico', type: 'Tequila', abv: 38, servings: [['Chupito', 40], ['Margarita', 250], ['Copa / combinado', 500]] },
+    { id: 'liqueur', brand: 'Licor genérico', type: 'Licor dulce', abv: 20, servings: [['Chupito', 40], ['Copa pequeña', 100], ['Cóctel', 250]] }
   ],
   beers: [
     { id: 'mahou', brand: 'Mahou', type: 'Lager', abv: 5.5, servings: [['Caña', 200], ['Tercio', 333], ['Pinta', 568]] },
     { id: 'estrella', brand: 'Estrella Galicia', type: 'Lager', abv: 5.5, servings: [['Caña', 200], ['Tercio', 333], ['Pinta', 568]] },
-    { id: 'ipa', brand: 'IPA genérica', type: 'IPA', abv: 6.5, servings: [['Media pinta', 284], ['Pinta', 568]] }
+    { id: 'ipa', brand: 'IPA genérica', type: 'IPA', abv: 6.5, servings: [['Media pinta', 284], ['Pinta', 568]] },
+    { id: 'sin-filtrar', brand: 'Cerveza sin filtrar', type: 'Especial', abv: 6, servings: [['Caña', 200], ['Tercio', 333], ['Jarra', 500]] }
   ],
   wines: [
     { id: 'rioja', brand: 'Rioja', type: 'Tinto', abv: 13.5, servings: [['Copa', 100], ['Copa generosa', 150], ['Botella', 750]] },
+    { id: 'ribera', brand: 'Ribera del Duero', type: 'Tinto', abv: 14, servings: [['Copa', 100], ['Copa generosa', 150], ['Botella', 750]] },
     { id: 'verdejo', brand: 'Verdejo', type: 'Blanco', abv: 12.5, servings: [['Copa', 100], ['Copa generosa', 150], ['Botella', 750]] },
-    { id: 'cava', brand: 'Cava', type: 'Espumoso', abv: 11.5, servings: [['Flauta', 100], ['Copa', 150], ['Botella', 750]] }
+    { id: 'albarino', brand: 'Albariño', type: 'Blanco', abv: 12.5, servings: [['Copa', 100], ['Copa generosa', 150], ['Botella', 750]] },
+    { id: 'rosado', brand: 'Rosado', type: 'Vino rosado', abv: 12, servings: [['Copa', 100], ['Copa generosa', 150], ['Botella', 750]] },
+    { id: 'cava', brand: 'Cava', type: 'Espumoso', abv: 11.5, servings: [['Flauta', 100], ['Copa', 150], ['Botella', 750]] },
+    { id: 'vermut', brand: 'Vermut', type: 'Aperitivo vínico', abv: 15, servings: [['Vaso', 100], ['Copa con hielo', 150]] },
+    { id: 'jerez', brand: 'Jerez', type: 'Generoso', abv: 15, servings: [['Catavinos', 75], ['Copa', 100]] }
   ]
 };
 
@@ -28,7 +36,7 @@ const state = load() || {
   drinks: [],
   waterBoost: false,
   reflexBase: null,
-  fillRatio: 0.55,
+  fillRatio: 0.35,
   ice: 0
 };
 
@@ -42,11 +50,23 @@ function load() {
 }
 function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
 function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
-function catLabel(key) { return { spirits: 'Destilados', beers: 'Cervezas', wines: 'Vinos' }[key]; }
+function catLabel(key) { return { spirits: 'Destilados', beers: 'Cervezas', wines: 'Vinos', manual: 'Manual' }[key]; }
 function currentCategory() { return $('#category').value; }
-function currentDrink() { return DB[currentCategory()].find(drink => drink.id === $('#drink').value); }
-function currentServing() { return Number($('#serving').value) || 0; }
 function isSpiritMode() { return currentCategory() === 'spirits'; }
+function isManualMode() { return currentCategory() === 'manual'; }
+function currentServing() { return isManualMode() ? Number($('#manualMl').value) || 0 : Number($('#serving').value) || 0; }
+function currentDrink() {
+  if (isManualMode()) {
+    return {
+      id: 'manual',
+      brand: $('#manualBrand').value.trim() || 'Bebida manual',
+      type: $('#manualType').value.trim() || 'Personalizada',
+      abv: clamp(Number($('#manualAbv').value) || 0, 0, 80),
+      servings: [['Manual', currentServing()]]
+    };
+  }
+  return DB[currentCategory()].find(drink => drink.id === $('#drink').value);
+}
 
 function init() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js');
@@ -64,6 +84,7 @@ function init() {
   hydrateUI();
   bind();
   drawAll();
+  setInterval(drawAll, 60000);
 }
 
 function hydrateUI() {
@@ -72,20 +93,27 @@ function hydrateUI() {
   $('#stomach').value = state.profile.stomach;
   $('#limit').value = state.profile.limit;
   $('#ice').value = state.ice;
-  Object.keys(DB).forEach(key => $('#category').add(new Option(catLabel(key), key)));
+  [...Object.keys(DB), 'manual'].forEach(key => $('#category').add(new Option(catLabel(key), key)));
   $('#category').value = 'spirits';
   fillDrinks();
 }
 
 function fillDrinks() {
+  $('#manualPanel').classList.toggle('hidden', !isManualMode());
+  $('#drink').disabled = isManualMode();
+  $('#serving').disabled = isManualMode();
+  $('#ice').disabled = !isSpiritMode();
   $('#drink').innerHTML = '';
-  DB[currentCategory()].forEach(drink => {
-    $('#drink').add(new Option(`${drink.brand} · ${drink.type} · ${drink.abv}%`, drink.id));
-  });
-  fillServings();
+  $('#serving').innerHTML = '';
+  if (!isManualMode()) {
+    DB[currentCategory()].forEach(drink => $('#drink').add(new Option(`${drink.brand} · ${drink.type} · ${drink.abv}%`, drink.id)));
+    fillServings();
+  }
+  drawAll();
 }
 
 function fillServings() {
+  if (isManualMode()) return;
   const drink = currentDrink();
   $('#serving').innerHTML = '';
   drink.servings.forEach(([name, ml]) => $('#serving').add(new Option(`${name}: ${ml} ml`, ml)));
@@ -93,9 +121,10 @@ function fillServings() {
 }
 
 function bind() {
-  $('#category').onchange = () => { fillDrinks(); drawAll(); };
+  $('#category').onchange = fillDrinks;
   $('#drink').onchange = () => { fillServings(); drawAll(); };
   $('#serving').onchange = drawAll;
+  ['manualBrand', 'manualType', 'manualAbv', 'manualMl'].forEach(id => $(`#${id}`).oninput = drawAll);
   $('#ice').oninput = () => {
     state.ice = clamp(Number($('#ice').value) || 0, 0, 8);
     $('#ice').value = state.ice;
@@ -119,13 +148,14 @@ function bind() {
   $('#reflexBtn').onclick = reflex;
   const glass = $('#glass');
   ['pointerdown', 'pointermove'].forEach(eventName => glass.addEventListener(eventName, event => {
+    if (!isSpiritMode()) return;
     if (eventName === 'pointerdown') glass.setPointerCapture?.(event.pointerId);
     if (event.buttons || eventName === 'pointerdown') setFill(event);
   }));
 }
 
 function glassMetrics() {
-  return { x: 55, y: 45, w: 150, h: 330, cap: VIRTUAL_GLASS_CAPACITY_ML };
+  return { x: 68, y: 45, w: 124, h: 330, cap: Math.max(40, currentServing()) };
 }
 
 function setFill(event) {
@@ -139,14 +169,13 @@ function setFill(event) {
 }
 
 function volumes() {
-  const selectedServingMl = currentServing();
+  const selectedServingMl = Math.max(0, currentServing());
+  const cap = Math.max(40, selectedServingMl);
   const iceMl = isSpiritMode() ? (Number($('#ice').value) || 0) * 30 : 0;
-  const physicalFillMl = isSpiritMode() ? VIRTUAL_GLASS_CAPACITY_ML * state.fillRatio : selectedServingMl;
-  const liquidUnderMarkedLevel = clamp(physicalFillMl - iceMl, 0, VIRTUAL_GLASS_CAPACITY_ML - iceMl);
-  const spirit = isSpiritMode() ? liquidUnderMarkedLevel : 0;
-  const totalDrinkTarget = isSpiritMode() ? Math.max(selectedServingMl, spirit) : selectedServingMl;
-  const mixer = isSpiritMode() ? clamp(totalDrinkTarget - iceMl - spirit, 0, totalDrinkTarget) : 0;
-  return { selectedServingMl, iceMl, spirit, mixer, physicalFillMl };
+  const physicalFillMl = isSpiritMode() ? cap * state.fillRatio : selectedServingMl;
+  const spirit = isSpiritMode() ? clamp(physicalFillMl - iceMl, 0, Math.max(0, cap - iceMl)) : selectedServingMl;
+  const mixer = isSpiritMode() ? clamp(cap - iceMl - spirit, 0, cap) : 0;
+  return { selectedServingMl, cap, iceMl, spirit, mixer, physicalFillMl };
 }
 
 function drawGlass() {
@@ -160,40 +189,43 @@ function drawGlass() {
   ctx.strokeStyle = 'rgba(229,242,255,.85)';
   ctx.fillStyle = 'rgba(255,255,255,.03)';
   ctx.beginPath();
-  ctx.moveTo(metrics.x, metrics.y);
-  ctx.lineTo(metrics.x + metrics.w, metrics.y);
-  ctx.lineTo(metrics.x + metrics.w - 25, base);
-  ctx.lineTo(metrics.x + 25, base);
-  ctx.closePath();
+  ctx.roundRect(metrics.x, metrics.y, metrics.w, metrics.h, 10);
   ctx.fill();
   ctx.stroke();
 
   const iceCount = isSpiritMode() ? Number($('#ice').value) || 0 : 0;
-  const iceH = metrics.h * (v.iceMl / metrics.cap);
-  const fillH = isSpiritMode() ? metrics.h * state.fillRatio : metrics.h * 0.75;
-  const spiritH = metrics.h * (v.spirit / metrics.cap);
-
+  const fillH = isSpiritMode() ? metrics.h * state.fillRatio : metrics.h * 0.72;
+  const spiritH = metrics.h * (v.spirit / v.cap);
+  const iceH = metrics.h * (v.iceMl / v.cap);
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(metrics.x + 3, metrics.y + 3, metrics.w - 6, metrics.h - 6, 8);
+  ctx.clip();
   ctx.fillStyle = 'rgba(56,189,248,.30)';
-  ctx.fillRect(metrics.x + 25, base - fillH, metrics.w - 50, fillH);
-  ctx.fillStyle = 'rgba(34,197,94,.55)';
-  ctx.fillRect(metrics.x + 25, base - iceH - spiritH, metrics.w - 50, spiritH);
+  ctx.fillRect(metrics.x + 3, base - fillH, metrics.w - 6, fillH);
+  ctx.fillStyle = isSpiritMode() ? 'rgba(34,197,94,.55)' : 'rgba(56,189,248,.45)';
+  ctx.fillRect(metrics.x + 3, base - iceH - spiritH, metrics.w - 6, spiritH);
+  ctx.restore();
+
   ctx.fillStyle = 'rgba(191,219,254,.78)';
   for (let i = 0; i < iceCount; i++) {
     const row = Math.floor(i / 3);
     const col = i % 3;
     ctx.save();
-    ctx.translate(metrics.x + 47 + col * 33, base - 18 - row * 30);
+    ctx.translate(metrics.x + 30 + col * 33, base - 18 - row * 30);
     ctx.rotate((i % 2 ? -1 : 1) * 0.15);
     ctx.fillRect(-12, -10, 24, 20);
     ctx.restore();
   }
-  ctx.strokeStyle = 'rgba(255,255,255,.6)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  const markY = base - fillH;
-  ctx.moveTo(metrics.x + 18, markY);
-  ctx.lineTo(metrics.x + metrics.w - 18, markY);
-  ctx.stroke();
+  if (isSpiritMode()) {
+    const markY = base - fillH;
+    ctx.strokeStyle = 'rgba(255,255,255,.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(metrics.x - 6, markY);
+    ctx.lineTo(metrics.x + metrics.w + 6, markY);
+    ctx.stroke();
+  }
   ctx.fillStyle = '#e5f2ff';
   ctx.font = '15px system-ui';
   ctx.fillText(isSpiritMode() ? 'Arrastra el nivel' : 'Volumen por envase', 58, 405);
@@ -203,16 +235,17 @@ function drawGlass() {
 function updateGlassStats() {
   const drink = currentDrink();
   const v = volumes();
-  $('#spiritMl').textContent = isSpiritMode() ? `${Math.round(v.spirit)} ml` : `${currentServing()} ml`;
+  $('#spiritMl').textContent = `${Math.round(v.spirit)} ml`;
   $('#mixerMl').textContent = isSpiritMode() ? `${Math.round(v.mixer)} ml` : '0 ml';
   $('#abvText').textContent = `${drink.abv}%`;
+  $('#capacityText').textContent = `${Math.round(v.cap)} ml`;
 }
 
 function addDrink() {
   const drink = currentDrink();
   const v = volumes();
-  const ml = isSpiritMode() ? v.spirit : currentServing();
-  if (ml <= 0) return alert('Marca un volumen mayor que cero. Si hay hielo, sube el nivel por encima de los cubitos.');
+  const ml = v.spirit;
+  if (ml <= 0) return alert(isSpiritMode() ? 'Marca un volumen mayor que cero. Si hay hielo, sube el nivel por encima de los cubitos.' : 'Indica un volumen manual mayor que cero.');
   const absorption = ($('#stomach').value === 'full' ? 90 : 30) * (state.waterBoost ? 1.1 : 1);
   state.drinks.push({
     id: crypto.randomUUID(),
@@ -253,6 +286,25 @@ function curve(durationMinutes = 240, stepMinutes = 5) {
   return points;
 }
 
+function riskLabel(bac) {
+  if (bac >= 3) return { name: 'Posible coma etílico', className: 'bad', help: 'Riesgo vital. Busca ayuda urgente si hay somnolencia extrema, vómitos, respiración lenta o pérdida de conciencia.' };
+  if (bac >= 1.5) return { name: 'Muy borracho', className: 'bad', help: 'No sigas bebiendo. Prioriza agua, comida, compañía y transporte seguro.' };
+  if (bac >= 0.8) return { name: 'Borracho', className: 'warn', help: 'Pasa a bebidas sin alcohol y evita cualquier actividad de riesgo.' };
+  if (bac >= 0.5) return { name: 'Atención', className: 'warn', help: 'Puede haber deterioro de reflejos. Espera y alterna con agua.' };
+  if (bac > 0) return { name: 'Afectación baja', className: 'ok', help: 'Aun así, la absorción puede seguir subiendo durante los próximos minutos.' };
+  return { name: 'Sin alcohol estimado', className: 'ok', help: 'Registra una bebida para ver la evolución temporal.' };
+}
+
+function renderSobrietyStatus() {
+  const now = bacAt(Date.now());
+  const percent = clamp((now / STATUS_MAX_BAC) * 100, 0, 100);
+  const status = riskLabel(now);
+  $('#sobrietyFill').style.width = `${percent}%`;
+  $('#sobrietyNeedle').style.left = `${percent}%`;
+  $('#sobrietyState').textContent = `${status.name} · ${now.toFixed(2)} g/L`;
+  $('#sobrietyHelp').textContent = status.help;
+}
+
 function drawRiskBand(ctx, chart, from, to, color, label) {
   const y1 = chart.yFor(Math.min(to, chart.max));
   const y2 = chart.yFor(Math.max(from, 0));
@@ -270,28 +322,19 @@ function drawChart() {
   const points = curve();
   const width = canvas.width;
   const height = canvas.height;
-  const chart = {
-    left: 42,
-    right: width - 24,
-    top: 26,
-    bottom: height - 36,
-    max: Math.max(4, ...points.map(point => point.bac), state.profile.limit * 1.3)
-  };
+  const chart = { left: 42, right: width - 24, top: 26, bottom: height - 36, max: Math.max(4, ...points.map(point => point.bac), state.profile.limit * 1.3) };
   chart.width = chart.right - chart.left;
   chart.height = chart.bottom - chart.top;
   chart.xFor = minute => chart.left + (minute / 240) * chart.width;
   chart.yFor = bac => chart.bottom - (bac / chart.max) * chart.height;
-
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = '#08111f';
   ctx.fillRect(0, 0, width, height);
-
   drawRiskBand(ctx, chart, 0, 0.5, 'rgba(34,197,94,.10)', '0–0.5: afectación baja');
   drawRiskBand(ctx, chart, 0.5, 0.8, 'rgba(245,158,11,.12)', '0.5–0.8: atención');
   drawRiskBand(ctx, chart, 0.8, 1.5, 'rgba(249,115,22,.14)', '0.8–1.5: borracho');
   drawRiskBand(ctx, chart, 1.5, 3, 'rgba(239,68,68,.15)', '1.5–3: muy borracho');
   drawRiskBand(ctx, chart, 3, 4, 'rgba(127,29,29,.35)', '3+: posible coma etílico');
-
   ctx.strokeStyle = 'rgba(159,176,200,.25)';
   ctx.lineWidth = 1;
   ctx.fillStyle = 'rgba(229,242,255,.7)';
@@ -304,7 +347,6 @@ function drawChart() {
     ctx.stroke();
     ctx.fillText(level.toFixed(level % 1 ? 1 : 0), 8, y + 4);
   });
-
   const limitY = chart.yFor(state.profile.limit);
   ctx.strokeStyle = '#f59e0b';
   ctx.setLineDash([8, 6]);
@@ -313,7 +355,6 @@ function drawChart() {
   ctx.lineTo(chart.right, limitY);
   ctx.stroke();
   ctx.setLineDash([]);
-
   ctx.strokeStyle = '#38bdf8';
   ctx.lineWidth = 4;
   ctx.beginPath();
@@ -323,14 +364,12 @@ function drawChart() {
     index ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
   });
   ctx.stroke();
-
   ctx.fillStyle = '#e5f2ff';
   ctx.font = '18px system-ui';
   ctx.fillText('BAC g/L · franjas orientativas', chart.left, 20);
   ctx.font = '11px system-ui';
   ctx.fillText('0 min', chart.left, height - 10);
   ctx.fillText('4 h', chart.right - 20, height - 10);
-
   const now = bacAt(Date.now());
   const peak = points.reduce((best, point) => point.bac > best.bac ? point : best, points[0]);
   $('#bacNow').textContent = `${now.toFixed(2)} g/L`;
@@ -426,6 +465,7 @@ function exportData() {
 function drawAll() {
   drawGlass();
   drawChart();
+  renderSobrietyStatus();
   renderHistory();
 }
 

@@ -21,9 +21,9 @@
   </header>
 
   <main class="app-grid">
-    <section class="card">
-      <h2>Perfil</h2>
-      <div class="form-grid">
+    <details class="card collapsible" open>
+      <summary><span>Perfil y meta</span><small>peso, sexo, estómago y límite</small></summary>
+      <div class="form-grid section-body">
         <label>Peso kg <input id="weight" type="number" min="35" max="180" step="1"></label>
         <label>Sexo biológico
           <select id="sex"><option value="male">Hombre · r 0.68</option><option value="female">Mujer · r 0.55</option></select>
@@ -34,6 +34,17 @@
         <label>Límite conductor g/L <input id="limit" type="number" min="0" max="1.5" step="0.05"></label>
       </div>
       <button id="saveProfile">Guardar perfil</button>
+    </details>
+
+    <section class="card status-card">
+      <h2>Estado estimado</h2>
+      <div class="sobriety-meter" aria-label="Barra de estado de embriaguez">
+        <div id="sobrietyFill" class="sobriety-fill"></div>
+        <div id="sobrietyNeedle" class="sobriety-needle"></div>
+      </div>
+      <div class="sobriety-labels"><span>0</span><span>0.5</span><span>0.8</span><span>1.5</span><span>3+</span></div>
+      <strong id="sobrietyState">Sin datos</strong>
+      <p id="sobrietyHelp" class="hint">Registra una bebida para calcular el estado temporal.</p>
     </section>
 
     <section class="card">
@@ -44,15 +55,27 @@
         <label>Envase <select id="serving"></select></label>
         <label>Cubitos <input id="ice" type="number" min="0" max="8" step="1"></label>
       </div>
+
+      <details id="manualPanel" class="manual-panel hidden">
+        <summary>Bebida manual</summary>
+        <div class="form-grid section-body">
+          <label>Marca o nombre <input id="manualBrand" type="text" placeholder="Ej. Spritz casero"></label>
+          <label>Tipo <input id="manualType" type="text" placeholder="Ej. Cóctel, vermut, licor"></label>
+          <label>Graduación % <input id="manualAbv" type="number" min="0" max="80" step="0.1" value="5"></label>
+          <label>Volumen ml <input id="manualMl" type="number" min="10" max="1500" step="10" value="250"></label>
+        </div>
+      </details>
+
       <div class="glass-layout">
         <canvas id="glass" width="260" height="430" aria-label="Vaso interactivo"></canvas>
         <div class="stats">
-          <span>Destilado real</span><strong id="spiritMl">0 ml</strong>
-          <span>Mezclador</span><strong id="mixerMl">0 ml</strong>
+          <span>Alcohol registrado</span><strong id="spiritMl">0 ml</strong>
+          <span>Mezclador estimado</span><strong id="mixerMl">0 ml</strong>
           <span>Graduación</span><strong id="abvText">0%</strong>
+          <span>Capacidad usada</span><strong id="capacityText">0 ml</strong>
         </div>
       </div>
-      <p class="hint">Arrastra o toca el vaso para marcar hasta dónde has servido alcohol. El hielo desplaza volumen: el alcohol real empieza por encima del hielo.</p>
+      <p class="hint">En destilados, arrastra o toca el vaso para marcar hasta dónde has servido alcohol. La escala del vaso se ajusta al envase elegido y el hielo desplaza volumen real.</p>
       <button id="addDrink">Registrar copa</button>
     </section>
 
@@ -64,19 +87,19 @@
       <div class="kpis"><div><span>BAC actual</span><strong id="bacNow">0.00 g/L</strong></div><div><span>Pico estimado</span><strong id="bacPeak">0.00 g/L</strong></div><div><span>Tiempo al pico</span><strong id="peakTime">—</strong></div></div>
     </section>
 
-    <section class="card">
-      <h2>Hidratación</h2>
-      <p>Tras una copa de alta graduación, confirma un vaso de agua. La siguiente copa se absorberá un 10% más lenta como incentivo conductual.</p>
+    <details class="card collapsible">
+      <summary><span>Hidratación</span><small>reto preventivo</small></summary>
+      <p class="section-body">Tras una copa de alta graduación, confirma un vaso de agua. La siguiente copa se absorberá un 10% más lenta como incentivo conductual.</p>
       <button id="waterBtn">He bebido 1 vaso de agua</button>
       <p id="waterState" class="hint"></p>
-    </section>
+    </details>
 
-    <section class="card">
-      <h2>Test de reflejos</h2>
-      <p>Pulsa cuando el botón cambie de color. Se compara contra la primera partida de la noche.</p>
+    <details class="card collapsible">
+      <summary><span>Test de reflejos</span><small>comparación con la base</small></summary>
+      <p class="section-body">Pulsa cuando el botón cambie de color. Se compara contra la primera partida de la noche.</p>
       <button id="reflexBtn" class="reflex">Empezar</button>
       <p id="reflexResult" class="hint"></p>
-    </section>
+    </details>
 
     <section class="card span">
       <h2>Historial</h2>
