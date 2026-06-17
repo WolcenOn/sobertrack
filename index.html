@@ -31,7 +31,7 @@
         <label>Estómago
           <select id="stomach"><option value="empty">Vacío · 30 min</option><option value="full">Lleno · 90 min</option></select>
         </label>
-        <label>Límite conductor g/L <input id="limit" type="number" min="0" max="1.5" step="0.05"></label>
+        <label>Límite preventivo g/L <input id="limit" type="number" min="0" max="1.5" step="0.05"></label>
       </div>
       <button id="saveProfile">Guardar perfil</button>
     </details>
@@ -79,23 +79,27 @@
       <button id="addDrink">Registrar copa</button>
     </section>
 
-    <section class="card advisor-card">
-      <h2>Asistente de reparto</h2>
-      <p class="hint">Selecciona bebida y envase arriba. El asistente calcula cómo repartirlo en un intervalo fijo: ml máximos por copa en destilados, o cuántos envases/copas de vino o cerveza puedes tomar en el periodo sin superar tu umbral.</p>
+    <section class="card advisor-card span">
+      <h2>Asistente de moderación</h2>
+      <p class="hint">Planifica una franja de fiesta y revisiones cada X minutos. La app estima pausas, cantidades más bajas y momentos de recuperación para reducir el riesgo de superar tu límite preventivo. No es una autorización para conducir.</p>
       <div class="form-grid">
-        <label>Cada cuántos minutos <input id="planInterval" type="number" min="10" max="180" step="5" value="30"></label>
-        <label>Durante cuántas horas <input id="planHours" type="number" min="1" max="12" step="0.5" value="4"></label>
+        <label>Hora de inicio <input id="planStart" type="time"></label>
+        <label>Hora de fin <input id="planEnd" type="time"></label>
+        <label>Revisar cada <input id="planInterval" type="number" min="10" max="180" step="5" value="30"></label>
         <label>Margen preventivo
-          <select id="planMargin">
-            <option value="1">Usar límite exacto</option>
-            <option value="0.9" selected>90% del límite</option>
-            <option value="0.8">80% del límite</option>
-          </select>
+          <select id="planMargin"><option value="1">Límite configurado</option><option value="0.9" selected>90% del límite</option><option value="0.8">80% del límite</option></select>
         </label>
-        <label>Servicios máximos <input id="planMaxServes" type="number" min="1" max="24" step="1" value="12"></label>
+        <label>Comida
+          <select id="planMeal"><option value="1">Sin comida extra</option><option value="1.25" selected>Algo de comida</option><option value="1.5">Comida completa</option></select>
+        </label>
+        <label>Hidratación
+          <select id="planHydration"><option value="1">Sin ajuste</option><option value="1.1" selected>Agua entre bebidas</option><option value="1.2">Agua + pausas activas</option></select>
+        </label>
+        <label>Revisiones máximas <input id="planMaxServes" type="number" min="1" max="24" step="1" value="12"></label>
       </div>
-      <button id="planBtn">Calcular reparto</button>
-      <div id="planResult" class="plan-result">Selecciona bebida, intervalo y pulsa calcular.</div>
+      <div class="toolbar"><button id="planBtn">Calcular moderación</button><button id="notifyPlanBtn" class="ghost">Activar avisos</button></div>
+      <div id="planResult" class="plan-result">Selecciona bebida, horarios y pulsa calcular.</div>
+      <canvas id="planCurve" width="900" height="260" aria-label="Curva prevista del asistente"></canvas>
       <ol id="planSchedule" class="plan-schedule"></ol>
     </section>
 
