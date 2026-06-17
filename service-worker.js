@@ -1,9 +1,10 @@
-const CACHE_NAME = 'sobertrack-cache-v1';
+const CACHE_NAME = 'sobertrack-cache-v2';
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './advisor.js',
   './manifest.json',
   './icons/icon.svg'
 ];

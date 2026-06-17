@@ -79,6 +79,26 @@
       <button id="addDrink">Registrar copa</button>
     </section>
 
+    <section class="card advisor-card">
+      <h2>Asistente de ritmo</h2>
+      <p class="hint">Usa la bebida y cantidad seleccionadas arriba para calcular cada cuánto podrías beber sin superar tu límite configurado. Es una simulación preventiva, no una autorización para conducir.</p>
+      <div class="form-grid">
+        <label>Copas previstas <input id="planCups" type="number" min="1" max="12" step="1" value="3"></label>
+        <label>Ventana de la noche <input id="planHours" type="number" min="1" max="12" step="0.5" value="4"></label>
+        <label>Margen preventivo
+          <select id="planMargin">
+            <option value="1">Usar límite exacto</option>
+            <option value="0.9" selected>90% del límite</option>
+            <option value="0.8">80% del límite</option>
+          </select>
+        </label>
+        <label>Buscar intervalo hasta <input id="planMaxInterval" type="number" min="30" max="240" step="10" value="180"></label>
+      </div>
+      <button id="planBtn">Calcular ritmo seguro</button>
+      <div id="planResult" class="plan-result">Selecciona bebida, cantidad y pulsa calcular.</div>
+      <ol id="planSchedule" class="plan-schedule"></ol>
+    </section>
+
     <section class="card span">
       <h2>Predicción próximas 4 horas</h2>
       <div id="alert" class="alert ok">Sin riesgo proyectado por encima de tu límite.</div>
@@ -109,5 +129,6 @@
   </main>
 
   <script src="./app.js" type="module"></script>
+  <script src="./advisor.js" type="module"></script>
 </body>
 </html>
