@@ -36,7 +36,8 @@ function getSelectedDrinkPlan() {
       name: ($('#manualBrand')?.value || 'Bebida manual').trim(),
       type: ($('#manualType')?.value || 'Personalizada').trim(),
       abv: clamp(Number($('#manualAbv')?.value) || 0, 0, 80),
-      ml: Math.max(0, Number($('#manualMl')?.value) || 0)
+      ml: Math.max(0, Number($('#manualMl')?.value) || 0),
+      category
     };
   }
 
@@ -51,14 +52,14 @@ function getSelectedDrinkPlan() {
     const iceMl = ice * 30;
     const physicalFillMl = cap * fillRatio;
     const spiritMl = clamp(physicalFillMl - iceMl, 0, Math.max(0, cap - iceMl));
-    return { name, type: 'Destilado con mezclador', abv, ml: spiritMl };
+    return { name, type: 'Destilado con mezclador', abv, ml: spiritMl, category };
   }
 
-  return { name, type: category === 'wines' ? 'Vino' : 'Cerveza', abv, ml: servingMl };
+  return { name, type: category === 'wines' ? 'Vino' : 'Cerveza', abv, ml: servingMl, category };
 }
 
-function gramsFor(drink) {
-  return drink.ml * (drink.abv / 100) * ETHANOL_DENSITY;
+function gramsForMl(ml, abv) {
+  return ml * (abv / 100) * ETHANOL_DENSITY;
 }
 
 function absorptionMinutes(profile) {
@@ -80,14 +81,15 @@ function bacAt(timestamp, drinks, profile) {
   return Math.max(0, raw - ELIMINATION_PER_MINUTE * elapsed);
 }
 
-function buildPlanDrinks(baseDrinks, startTime, dose, cups, intervalMinutes, absorption) {
-  const planned = Array.from({ length: cups }, (_, index) => ({
+function plannedDrinks(baseDrinks, startTime, mlPerServe, drink, intervalMinutes, serves, absorption) {
+  const grams = gramsForMl(mlPerServe, drink.abv);
+  const future = Array.from({ length: serves }, (_, index) => ({
     id: `planned-${index + 1}`,
     time: startTime + index * intervalMinutes * 60000,
-    grams: dose.grams,
+    grams,
     absorption
   }));
-  return [...baseDrinks, ...planned];
+  return [...baseDrinks, ...future];
 }
 
 function peakForPlan(drinks, startTime, horizonMinutes, profile) {
@@ -99,32 +101,34 @@ function peakForPlan(drinks, startTime, horizonMinutes, profile) {
   return peak;
 }
 
-function findMinimumInterval({ baseDrinks, startTime, dose, cups, absorption, threshold, maxInterval }) {
-  const horizon = Math.max(480, maxInterval * cups + 240);
-  for (let interval = 10; interval <= maxInterval; interval += 5) {
-    const drinks = buildPlanDrinks(baseDrinks, startTime, dose, cups, interval, absorption);
-    const peak = peakForPlan(drinks, startTime, horizon, getProfile());
-    if (peak.bac <= threshold) return { interval, peak, drinks };
-  }
-  const fallbackDrinks = buildPlanDrinks(baseDrinks, startTime, dose, cups, maxInterval, absorption);
-  return { interval: null, peak: peakForPlan(fallbackDrinks, startTime, horizon, getProfile()), drinks: fallbackDrinks };
+function servesForWindow(intervalMinutes, windowMinutes, maxServes) {
+  return Math.max(1, Math.min(maxServes, Math.floor(windowMinutes / intervalMinutes) + 1));
 }
 
-function maxCupsInWindow({ baseDrinks, startTime, dose, absorption, threshold, windowMinutes }) {
-  let safe = 0;
-  let lastPeak = { minute: 0, bac: 0 };
-  for (let cups = 1; cups <= 20; cups++) {
-    const interval = cups === 1 ? 0 : windowMinutes / (cups - 1);
-    const drinks = buildPlanDrinks(baseDrinks, startTime, dose, cups, interval, absorption);
-    const peak = peakForPlan(drinks, startTime, windowMinutes + 240, getProfile());
-    if (peak.bac <= threshold) {
-      safe = cups;
-      lastPeak = peak;
-    } else {
-      break;
-    }
+function simulateServingSize({ drink, profile, baseDrinks, intervalMinutes, windowMinutes, threshold, maxServes }) {
+  const startTime = Date.now();
+  const absorption = absorptionMinutes(profile);
+  const serves = servesForWindow(intervalMinutes, windowMinutes, maxServes);
+  const horizon = Math.max(windowMinutes + 240, intervalMinutes * serves + 240);
+
+  function peakForMl(ml) {
+    const drinks = plannedDrinks(baseDrinks, startTime, ml, drink, intervalMinutes, serves, absorption);
+    return peakForPlan(drinks, startTime, horizon, profile);
   }
-  return { safe, peak: lastPeak };
+
+  const selectedPeak = peakForMl(drink.ml);
+  let low = 0;
+  let high = drink.ml;
+  for (let i = 0; i < 24; i++) {
+    const mid = (low + high) / 2;
+    const peak = peakForMl(mid);
+    if (peak.bac <= threshold) low = mid;
+    else high = mid;
+  }
+
+  const safeMl = Math.floor(low);
+  const safePeak = peakForMl(safeMl);
+  return { serves, safeMl, safePeak, selectedPeak, startTime };
 }
 
 function formatTimeFromNow(minutes) {
@@ -132,14 +136,14 @@ function formatTimeFromNow(minutes) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function renderSchedule(interval, cups) {
+function renderSchedule(interval, serves, ml, drink) {
   const list = $('#planSchedule');
   list.innerHTML = '';
-  if (interval == null) return;
-  for (let index = 0; index < cups; index++) {
-    const li = document.createElement('li');
+  if (!ml) return;
+  for (let index = 0; index < serves; index++) {
     const minutes = index * interval;
-    li.textContent = `Copa ${index + 1}: ${minutes === 0 ? 'ahora' : `en ${minutes} min`} · ${formatTimeFromNow(minutes)}`;
+    const li = document.createElement('li');
+    li.textContent = `${minutes === 0 ? 'Ahora' : `En ${minutes} min`} · ${formatTimeFromNow(minutes)} · ${ml} ml de ${drink.name}`;
     list.append(li);
   }
 }
@@ -147,50 +151,50 @@ function renderSchedule(interval, cups) {
 function calculatePlan() {
   const state = getStoredState();
   const profile = getProfile();
-  const selected = getSelectedDrinkPlan();
-  const cups = clamp(Number($('#planCups')?.value) || 1, 1, 12);
+  const drink = getSelectedDrinkPlan();
+  const intervalMinutes = clamp(Number($('#planInterval')?.value) || 30, 10, 180);
   const windowHours = clamp(Number($('#planHours')?.value) || 4, 1, 12);
-  const maxInterval = clamp(Number($('#planMaxInterval')?.value) || 180, 30, 240);
+  const windowMinutes = windowHours * 60;
+  const maxServes = clamp(Number($('#planMaxServes')?.value) || 12, 1, 24);
   const margin = Number($('#planMargin')?.value) || 0.9;
   const threshold = Math.max(0.05, profile.limit * margin);
-  const grams = gramsFor(selected);
   const result = $('#planResult');
-
-  if (!selected.ml || !selected.abv || grams <= 0) {
-    result.className = 'plan-result bad';
-    result.textContent = 'No puedo calcular el ritmo: selecciona una bebida con volumen y graduación mayores que cero.';
-    $('#planSchedule').innerHTML = '';
-    return;
-  }
-
-  const now = Date.now();
   const baseDrinks = (state.drinks || []).map(drink => ({ ...drink, absorption: drink.absorption || absorptionMinutes(profile) }));
-  const dose = { grams };
-  const absorption = absorptionMinutes(profile);
-  const intervalPlan = findMinimumInterval({ baseDrinks, startTime: now, dose, cups, absorption, threshold, maxInterval });
-  const maxSafe = maxCupsInWindow({ baseDrinks, startTime: now, dose, absorption, threshold, windowMinutes: windowHours * 60 });
 
-  const drinkLabel = `${Math.round(selected.ml)} ml de ${selected.name} (${selected.abv}%): ${grams.toFixed(1)} g de alcohol`;
-
-  if (intervalPlan.interval == null) {
+  if (!drink.ml || !drink.abv || gramsForMl(drink.ml, drink.abv) <= 0) {
     result.className = 'plan-result bad';
-    result.innerHTML = `<strong>Plan no recomendado.</strong><br>${drinkLabel}. Incluso separando ${cups} copas hasta ${maxInterval} min, el pico estimado sería ${intervalPlan.peak.bac.toFixed(2)} g/L, por encima del objetivo preventivo ${threshold.toFixed(2)} g/L. En ${windowHours} h, el máximo orientativo sería ${maxSafe.safe} copa(s).`;
+    result.textContent = 'No puedo calcular el reparto: selecciona una bebida con volumen y graduación mayores que cero.';
     $('#planSchedule').innerHTML = '';
     return;
   }
 
-  const totalMinutes = intervalPlan.interval * Math.max(0, cups - 1);
-  const fitsWindow = totalMinutes <= windowHours * 60;
-  result.className = fitsWindow ? 'plan-result ok' : 'plan-result warn';
-  result.innerHTML = `<strong>${fitsWindow ? 'Ritmo estimado compatible.' : 'Ritmo seguro, pero no cabe en tu ventana.'}</strong><br>${drinkLabel}. Para ${cups} copa(s), espera al menos <strong>${intervalPlan.interval} minutos</strong> entre copas. Pico estimado: ${intervalPlan.peak.bac.toFixed(2)} g/L. Objetivo usado: ${threshold.toFixed(2)} g/L. En ${windowHours} h, máximo orientativo: ${maxSafe.safe} copa(s).`;
-  renderSchedule(intervalPlan.interval, cups);
+  const simulation = simulateServingSize({ drink, profile, baseDrinks, intervalMinutes, windowMinutes, threshold, maxServes });
+  const selectedGrams = gramsForMl(drink.ml, drink.abv);
+  const safeGrams = gramsForMl(simulation.safeMl, drink.abv);
+  const percent = drink.ml > 0 ? Math.round((simulation.safeMl / drink.ml) * 100) : 0;
+  const selectedIsSafe = simulation.selectedPeak.bac <= threshold;
+  const servingWord = simulation.serves === 1 ? 'servicio' : 'servicios';
+
+  if (simulation.safeMl <= 0) {
+    result.className = 'plan-result bad';
+    result.innerHTML = `<strong>No hay reparto seguro con esos datos.</strong><br>Con las bebidas ya registradas y tu objetivo ${threshold.toFixed(2)} g/L, no conviene añadir alcohol en intervalos de ${intervalMinutes} min durante ${windowHours} h.`;
+    $('#planSchedule').innerHTML = '';
+    return;
+  }
+
+  result.className = selectedIsSafe ? 'plan-result ok' : 'plan-result warn';
+  result.innerHTML = `<strong>${selectedIsSafe ? 'Tu medida actual cabe en ese reparto.' : 'Reduce la medida por servicio.'}</strong><br>Con ${drink.name} (${drink.abv}%), cada ${intervalMinutes} min durante ${windowHours} h salen ${simulation.serves} ${servingWord}. Tu medida actual es ${Math.round(drink.ml)} ml (${selectedGrams.toFixed(1)} g de alcohol) y alcanzaría un pico de ${simulation.selectedPeak.bac.toFixed(2)} g/L. Para no superar ${threshold.toFixed(2)} g/L, sirve como máximo <strong>${simulation.safeMl} ml</strong> por intervalo (${safeGrams.toFixed(1)} g de alcohol), aproximadamente el ${percent}% de tu medida actual. Pico estimado con ese reparto: ${simulation.safePeak.bac.toFixed(2)} g/L.`;
+  renderSchedule(intervalMinutes, simulation.serves, simulation.safeMl, drink);
 }
 
 function bindAdvisor() {
   $('#planBtn')?.addEventListener('click', calculatePlan);
-  ['planCups', 'planHours', 'planMargin', 'planMaxInterval', 'category', 'drink', 'serving', 'ice', 'manualAbv', 'manualMl', 'weight', 'sex', 'stomach', 'limit'].forEach(id => {
+  ['planInterval', 'planHours', 'planMargin', 'planMaxServes', 'category', 'drink', 'serving', 'ice', 'manualAbv', 'manualMl', 'weight', 'sex', 'stomach', 'limit'].forEach(id => {
     const element = $(`#${id}`);
-    if (element) element.addEventListener('change', () => $('#planResult').textContent = 'Pulsa calcular para actualizar el ritmo con los datos actuales.');
+    if (element) element.addEventListener('change', () => {
+      $('#planResult').textContent = 'Pulsa calcular para actualizar el reparto con los datos actuales.';
+      $('#planSchedule').innerHTML = '';
+    });
   });
 }
 
