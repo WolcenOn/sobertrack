@@ -1,0 +1,19 @@
+{
+  "name": "SoberTrack · BAC Offline",
+  "short_name": "SoberTrack",
+  "description": "PWA offline-first para estimar BAC en el tiempo y fomentar consumo responsable de alcohol.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#070b16",
+  "theme_color": "#101827",
+  "lang": "es",
+  "categories": ["health", "lifestyle", "education"],
+  "icons": [{
+    "src": "icons/icon.svg",
+    "sizes": "any",
+    "type": "image/svg+xml",
+    "purpose": "any maskable"
+  }]
+}

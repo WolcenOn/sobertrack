@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101827">
+  <title>SoberTrack · BAC Offline</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icons/icon.svg">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="hero">
+    <div>
+      <p class="eyebrow">PWA offline-first · consumo responsable</p>
+      <h1>SoberTrack</h1>
+      <p>Estima la curva BAC, anticipa el efecto retraso y decide con margen. No sustituye un alcoholímetro ni criterios legales.</p>
+    </div>
+    <button id="installBtn" class="ghost hidden">Instalar</button>
+  </header>
+
+  <main class="app-grid">
+    <section class="card">
+      <h2>Perfil</h2>
+      <div class="form-grid">
+        <label>Peso kg <input id="weight" type="number" min="35" max="180" step="1"></label>
+        <label>Sexo biológico
+          <select id="sex"><option value="male">Hombre · r 0.68</option><option value="female">Mujer · r 0.55</option></select>
+        </label>
+        <label>Estómago
+          <select id="stomach"><option value="empty">Vacío · 30 min</option><option value="full">Lleno · 90 min</option></select>
+        </label>
+        <label>Límite conductor g/L <input id="limit" type="number" min="0" max="1.5" step="0.05"></label>
+      </div>
+      <button id="saveProfile">Guardar perfil</button>
+    </section>
+
+    <section class="card">
+      <h2>Preparar bebida</h2>
+      <div class="form-grid">
+        <label>Categoría <select id="category"></select></label>
+        <label>Bebida <select id="drink"></select></label>
+        <label>Envase <select id="serving"></select></label>
+        <label>Cubitos <input id="ice" type="number" min="0" max="8" step="1"></label>
+      </div>
+      <div class="glass-layout">
+        <canvas id="glass" width="260" height="430" aria-label="Vaso interactivo"></canvas>
+        <div class="stats">
+          <span>Destilado real</span><strong id="spiritMl">0 ml</strong>
+          <span>Mezclador</span><strong id="mixerMl">0 ml</strong>
+          <span>Graduación</span><strong id="abvText">0%</strong>
+        </div>
+      </div>
+      <p class="hint">Arrastra o toca el vaso para marcar hasta dónde has servido alcohol. El hielo desplaza volumen: el alcohol real empieza por encima del hielo.</p>
+      <button id="addDrink">Registrar copa</button>
+    </section>
+
+    <section class="card span">
+      <h2>Predicción próximas 4 horas</h2>
+      <div id="alert" class="alert ok">Sin riesgo proyectado por encima de tu límite.</div>
+      <canvas id="chart" width="900" height="320"></canvas>
+      <div class="kpis"><div><span>BAC actual</span><strong id="bacNow">0.00 g/L</strong></div><div><span>Pico estimado</span><strong id="bacPeak">0.00 g/L</strong></div><div><span>Tiempo al pico</span><strong id="peakTime">—</strong></div></div>
+    </section>
+
+    <section class="card">
+      <h2>Hidratación</h2>
+      <p>Tras una copa de alta graduación, confirma un vaso de agua. La siguiente copa se absorberá un 10% más lenta como incentivo conductual.</p>
+      <button id="waterBtn">He bebido 1 vaso de agua</button>
+      <p id="waterState" class="hint"></p>
+    </section>
+
+    <section class="card">
+      <h2>Test de reflejos</h2>
+      <p>Pulsa cuando el botón cambie de color. Se compara contra la primera partida de la noche.</p>
+      <button id="reflexBtn" class="reflex">Empezar</button>
+      <p id="reflexResult" class="hint"></p>
+    </section>
+
+    <section class="card span">
+      <h2>Historial</h2>
+      <div class="toolbar"><button id="exportBtn" class="ghost">Exportar JSON</button><button id="resetBtn" class="danger">Borrar sesión</button></div>
+      <ul id="history" class="history"></ul>
+    </section>
+  </main>
+
+  <script src="./app.js" type="module"></script>
+</body>
+</html>
